@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBM Punch Card Decoder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .header-wrapper {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        h1 { margin: 0; }
+        
+        .subtitle {
+            margin-top: 5px;
+            margin-bottom: 20px;
+            color: #bdc3c7;
+            text-align: center;
+        }
+
+        /* GitHub Link Styling */
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ecf0f1;
+            text-decoration: none;
+            font-family: sans-serif;
+            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .github-link:hover { background-color: #34495e; }
+        .github-link svg { width: 24px; height: 24px; fill: currentColor; }
+
+        .punch-card {
+            background-color: #eaddc5;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            clip-path: polygon(40px 0, 100% 0, 100% 100%, 0 100%, 0 40px);
+            width: 100%;
+            max-width: 1200px;
+            box-sizing: border-box;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            color: #8c7b61;
+            font-size: 14px;
+            margin-bottom: 15px;
+            padding-left: 40px;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 30px repeat(80, 1fr) 30px;
+            gap: 2px 1px;
+            align-items: center;
+        }
+
+        .label {
+            color: #8c7b61;
+            font-size: 10px;
+            text-align: center;
+            font-weight: bold;
+            user-select: none;
+        }
+        
+        .col-label {
+            writing-mode: vertical-rl;
+            height: 20px;
+            margin-bottom: 5px;
+            margin-top: 5px;
+        }
+
+        .row-label { padding: 0 5px; }
+
+        .hole {
+            height: 20px;
+            background-color: #f5eedf;
+            border: 1px solid #d1c0a5;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: background-color 0.1s, border-color 0.1s;
+        }
+
+        .hole.crosshair-highlight, .label.crosshair-highlight {
+            background-color: #d1c5ae;
+            color: #5c4f3a;
+        }
+
+        .hole:hover {
+            border: 1px solid #2c3e50;
+            background-color: #c4b69d;
+        }
+
+        .hole.punched {
+            background-color: #2c3e50 !important;
+            border-color: #1a252f !important;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+
+        .output-container {
+            margin-top: 30px;
+            background-color: #34495e;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 1200px;
+            box-sizing: border-box;
+        }
+
+        .output-label {
+            font-size: 14px;
+            color: #95a5a6;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .message-box {
+            background-color: #1abc9c;
+            color: #fff;
+            padding: 15px;
+            font-size: 24px;
+            letter-spacing: 4px;
+            border-radius: 4px;
+            min-height: 30px;
+            white-space: pre-wrap; 
+            word-wrap: break-word;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .message-box:hover { background-color: #16a085; }
+
+        .controls { 
+            margin-bottom: 20px; 
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button, .btn-label {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-family: inherit;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+        button:hover, .btn-label:hover { background-color: #c0392b; }
+        
+        .btn-action { background-color: #3498db; }
+        .btn-action:hover { background-color: #2980b9; }
+
+        .btn-export { background-color: #8e44ad; }
+        .btn-export:hover { background-color: #732d91; }
+
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header-wrapper">
+        <h1>IBM Punch Card Decoder & Creator</h1>
+        <a href="https://github.com/jackrschumacher/IBM-Punchcard" target="_blank" class="github-link">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            GitHub
+        </a>
+    </div>
+        
+    <p class="subtitle">Hover to highlight rows/cols. Click to punch. Click message to copy.</p>
+
+    <div class="controls">
+        <button class="btn-export" id="export-img-btn">Export Picture</button>
+        <button class="btn-action" id="save-btn">Save to JSON</button>
+        <label class="btn-label btn-action">
+            Load JSON
+            <input type="file" id="load-btn" accept=".json">
+        </label>
+        <button id="clear-btn">Clear Punches</button>
+    </div>
+
+    <div class="punch-card" id="capture-target">
+        <div class="card-header">
+            <span>IBM 80-COLUMN CARD</span>
+            <span>STANDARD HOLLERITH ENCODING</span>
+        </div>
+        <div class="grid" id="punch-grid">
+            </div>
+    </div>
+
+    <div class="output-container">
+        <div class="output-label">
+            <span>DECODED MESSAGE:</span>
+            <span>(Click green box to copy)</span>
+        </div>
+        <div class="message-box" id="decoded-message" title="Click to copy to clipboard"></div>
+    </div>
+
+    <script>
+        const NUM_COLS = 80;
+        const ROWS = [12, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        
+        let cardState = Array.from({ length: NUM_COLS }, () => new Set());
+        let currentRawText = ""; 
+        
+        const gridEl = document.getElementById('punch-grid');
+        const messageEl = document.getElementById('decoded-message');
+        const clearBtn = document.getElementById('clear-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const loadBtn = document.getElementById('load-btn');
+        const exportImgBtn = document.getElementById('export-img-btn');
+
+        function buildGrid() {
+            gridEl.innerHTML = '';
+            gridEl.appendChild(createLabel('', '')); 
+            for (let c = 0; c < NUM_COLS; c++) {
+                gridEl.appendChild(createLabel(c + 1, `label-col-${c} col-label`));
+            }
+            gridEl.appendChild(createLabel('', '')); 
+
+            for (let r = 0; r < ROWS.length; r++) {
+                const rowVal = ROWS[r];
+                gridEl.appendChild(createLabel(rowVal, `label-row-${r} row-label`));
+
+                for (let c = 0; c < NUM_COLS; c++) {
+                    const hole = document.createElement('div');
+                    hole.className = `hole col-${c} row-${rowVal}`; 
+                    hole.title = `Column ${c + 1}, Row ${rowVal}`;
+                    
+                    hole.addEventListener('click', () => togglePunch(c, rowVal, hole));
+                    hole.addEventListener('mouseenter', () => activateCrosshair(c, r));
+                    hole.addEventListener('mouseleave', () => removeCrosshair(c, r));
+
+                    gridEl.appendChild(hole);
+                }
+                gridEl.appendChild(createLabel(rowVal, `label-row-${r} row-label`));
+            }
+
+            gridEl.appendChild(createLabel('', '')); 
+            for (let c = 0; c < NUM_COLS; c++) {
+                gridEl.appendChild(createLabel(c + 1, `label-col-${c} col-label`));
+            }
+            gridEl.appendChild(createLabel('', '')); 
+        }
+
+        function createLabel(text, extraClasses) {
+            const div = document.createElement('div');
+            div.className = `label ${extraClasses}`;
+            div.textContent = text;
+            return div;
+        }
+
+        function activateCrosshair(col, row) {
+            document.querySelectorAll(`.col-${col}`).forEach(el => el.classList.add('crosshair-highlight'));
+            document.querySelectorAll(`.row-${ROWS[row]}`).forEach(el => el.classList.add('crosshair-highlight'));
+            document.querySelectorAll(`.label-col-${col}`).forEach(el => el.classList.add('crosshair-highlight'));
+            document.querySelectorAll(`.label-row-${row}`).forEach(el => el.classList.add('crosshair-highlight'));
+        }
+
+        function removeCrosshair(col, row) {
+            document.querySelectorAll(`.col-${col}`).forEach(el => el.classList.remove('crosshair-highlight'));
+            document.querySelectorAll(`.row-${ROWS[row]}`).forEach(el => el.classList.remove('crosshair-highlight'));
+            document.querySelectorAll(`.label-col-${col}`).forEach(el => el.classList.remove('crosshair-highlight'));
+            document.querySelectorAll(`.label-row-${row}`).forEach(el => el.classList.remove('crosshair-highlight'));
+        }
+
+        function togglePunch(colIndex, rowVal, holeElement) {
+            const columnSet = cardState[colIndex];
+            if (columnSet.has(rowVal)) {
+                columnSet.delete(rowVal);
+                holeElement.classList.remove('punched');
+            } else {
+                columnSet.add(rowVal);
+                holeElement.classList.add('punched');
+            }
+            decodeCard();
+        }
+
+        // --- NEW: Export Picture Logic ---
+        exportImgBtn.addEventListener('click', () => {
+            const cardElement = document.getElementById('capture-target');
+            
+            // Check if library loaded
+            if (typeof html2canvas === 'undefined') {
+                alert("The image export library failed to load. Please check your internet connection and try again.");
+                return;
+            }
+
+            // Temporarily change text to show it's working
+            const originalText = exportImgBtn.innerText;
+            exportImgBtn.innerText = "Capturing...";
+            exportImgBtn.disabled = true;
+
+            html2canvas(cardElement, {
+                backgroundColor: null, // Keep the cut corner transparent
+                scale: 2 // Higher resolution (retina display quality)
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'punchcard-export.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                exportImgBtn.innerText = originalText;
+                exportImgBtn.disabled = false;
+            }).catch(err => {
+                console.error("Capture failed:", err);
+                alert("Failed to capture the image.");
+                exportImgBtn.innerText = originalText;
+                exportImgBtn.disabled = false;
+            });
+        });
+
+        // JSON Save
+        saveBtn.addEventListener('click', () => {
+            const exportData = cardState.map(set => Array.from(set));
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", "punchcard.json");
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        });
+
+        // JSON Load
+        loadBtn.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedData) || importedData.length !== NUM_COLS) {
+                        throw new Error("Invalid format");
+                    }
+                    cardState = importedData.map(arr => new Set(arr));
+                    
+                    document.querySelectorAll('.hole').forEach(el => el.classList.remove('punched'));
+                    for (let c = 0; c < NUM_COLS; c++) {
+                        cardState[c].forEach(r => {
+                            const hole = document.querySelector(`.hole.col-${c}.row-${r}`);
+                            if (hole) hole.classList.add('punched');
+                        });
+                    }
+                    decodeCard();
+                } catch (err) {
+                    alert("Error loading file. Make sure it is a valid punchcard JSON file.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        });
+
+        clearBtn.addEventListener('click', () => {
+            cardState = Array.from({ length: NUM_COLS }, () => new Set());
+            document.querySelectorAll('.hole').forEach(el => el.classList.remove('punched'));
+            decodeCard();
+        });
+
+        // Copy Text
+        messageEl.addEventListener('click', async () => {
+            if (!currentRawText || currentRawText.trim() === '') return;
+            try {
+                await navigator.clipboard.writeText(currentRawText);
+                const originalHTML = messageEl.innerHTML;
+                messageEl.innerHTML = "COPIED TO CLIPBOARD!";
+                messageEl.style.backgroundColor = "#27ae60"; 
+                
+                setTimeout(() => {
+                    messageEl.innerHTML = originalHTML;
+                    messageEl.style.backgroundColor = ""; 
+                }, 1000);
+            } catch (err) {
+                console.error("Failed to copy text: ", err);
+            }
+        });
+
+        // Hollerith Logic
+        function decodeCard() {
+            let resultString = '';
+            for (let col = 0; col < NUM_COLS; col++) {
+                const punches = Array.from(cardState[col]);
+                
+                if (punches.length === 0) { resultString += ' '; continue; }
+
+                if (punches.length === 1) {
+                    const p = punches[0];
+                    if (p >= 0 && p <= 9) { resultString += p.toString(); } 
+                    else { resultString += '?'; }
+                    continue;
+                }
+
+                if (punches.length === 2) {
+                    const has12 = punches.includes(12);
+                    const has11 = punches.includes(11);
+                    const has0  = punches.includes(0);
+                    const numPunch = punches.find(p => p !== 12 && p !== 11 && p !== 0);
+
+                    if (numPunch !== undefined) {
+                        if (has12 && numPunch >= 1 && numPunch <= 9) {
+                            resultString += String.fromCharCode(64 + numPunch); 
+                        } else if (has11 && numPunch >= 1 && numPunch <= 9) {
+                            resultString += String.fromCharCode(73 + numPunch); 
+                        } else if (has0 && numPunch >= 2 && numPunch <= 9) {
+                            resultString += String.fromCharCode(81 + numPunch); 
+                        } else { resultString += '?'; }
+                    } else { resultString += '?'; }
+                    continue;
+                }
+                resultString += '?';
+            }
+            
+            currentRawText = resultString; 
+            messageEl.innerHTML = resultString.replace(/ /g, '&nbsp;'); 
+        }
+
+        buildGrid();
+        decodeCard();
+    </script>
+</body>
+</html>
