@@ -4,11 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBM Punch Card Decoder</title>
+    <title>IBM Punch Card Decoder & Creator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
-        /* FIX 1: Removed display: flex and align-items: center from body */
         body {
             background-color: #2c3e50;
             color: #ecf0f1;
@@ -17,7 +16,6 @@
             margin: 0;
         }
 
-        /* FIX 2: Added margin: 0 auto to all main containers to keep them centered */
         .header-wrapper {
             width: 100%;
             max-width: 1200px;
@@ -70,6 +68,36 @@
             justify-content: center;
         }
 
+        /* NEW ENCODER STYLES */
+        .encode-container {
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            background-color: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        #encode-input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            border: none;
+            border-radius: 4px;
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-transform: uppercase;
+        }
+
+        #encode-input::placeholder {
+            color: #7f8c8d;
+        }
+
         .card-scroll-wrapper {
             width: 100%;
             max-width: 1200px;
@@ -101,7 +129,6 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             clip-path: polygon(40px 0, 100% 0, 100% 100%, 0 100%, 0 40px);
             width: 100%;
-            /* FIX 3: Ensures the card grows as large as the grid requires */
             min-width: max-content;
             box-sizing: border-box;
             margin: 0 auto;
@@ -119,7 +146,6 @@
 
         .grid {
             display: grid;
-            /* FIX 4: Use minmax to guarantee columns never shrink below 12px */
             grid-template-columns: 30px repeat(80, minmax(12px, 1fr)) 30px;
             gap: 2px 1px;
             align-items: center;
@@ -134,10 +160,16 @@
         }
 
         .col-label {
-            writing-mode: vertical-rl;
+            /* Remove writing-mode: vertical-rl; */
             height: 20px;
             margin-bottom: 5px;
             margin-top: 5px;
+
+            /* Use transform to rotate the text instead */
+            transform: rotate(90deg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .row-label {
@@ -191,14 +223,13 @@
             background-color: #1abc9c;
             color: #fff;
             padding: 15px;
-            font-size: 24px;
+            font-size: 16px;
+            /* Changed from 24px */
             letter-spacing: 4px;
             border-radius: 4px;
             min-height: 30px;
             white-space: pre;
-            /* Changed from pre-wrap */
             overflow-x: auto;
-            /* Adds a scrollbar if the text gets too long on small screens */
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
             cursor: pointer;
             transition: background-color 0.2s;
@@ -244,6 +275,14 @@
             background-color: #732d91;
         }
 
+        .btn-toggle {
+            background-color: #f39c12;
+        }
+
+        .btn-toggle:hover {
+            background-color: #d35400;
+        }
+
         input[type="file"] {
             display: none;
         }
@@ -266,6 +305,7 @@
     <p class="subtitle">Hover to highlight rows/cols. Click to punch. Click message to copy.</p>
 
     <div class="controls">
+        <button class="btn-toggle" id="toggle-encode-btn">Encode Message</button>
         <button class="btn-export" id="export-img-btn">Export Picture</button>
         <button class="btn-action" id="save-btn">Save to JSON</button>
         <label class="btn-label btn-action">
@@ -273,6 +313,11 @@
             <input type="file" id="load-btn" accept=".json">
         </label>
         <button id="clear-btn">Clear Punches</button>
+    </div>
+
+    <div class="encode-container" id="encode-container" style="display: none;">
+        <input type="text" id="encode-input" maxlength="80" placeholder="Type message to encode (max 80 chars)...">
+        <button class="btn-action" id="encode-btn">Punch Card</button>
     </div>
 
     <div class="card-scroll-wrapper">
@@ -307,6 +352,10 @@
         const saveBtn = document.getElementById('save-btn');
         const loadBtn = document.getElementById('load-btn');
         const exportImgBtn = document.getElementById('export-img-btn');
+        const toggleEncodeBtn = document.getElementById('toggle-encode-btn');
+        const encodeContainer = document.getElementById('encode-container');
+        const encodeInput = document.getElementById('encode-input');
+        const encodeBtn = document.getElementById('encode-btn');
 
         const domCache = { cols: [], rows: {} };
         for (let i = 0; i < NUM_COLS; i++) domCache.cols[i] = [];
@@ -418,6 +467,61 @@
             }
             decodeCard();
         }
+
+        /* --- ENCODER LOGIC START --- */
+        toggleEncodeBtn.addEventListener('click', () => {
+            if (encodeContainer.style.display === 'none') {
+                encodeContainer.style.display = 'flex';
+                encodeInput.focus();
+                // Change text to indicate it will close when clicked again
+                toggleEncodeBtn.textContent = "Close Encoder";
+            } else {
+                encodeContainer.style.display = 'none';
+                // Revert text back to the original
+                toggleEncodeBtn.textContent = "Encode Message";
+            }
+        });
+
+        encodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                encodeBtn.click();
+            }
+        });
+
+        function charToPunches(char) {
+            const c = char.toUpperCase();
+            if (c >= '0' && c <= '9') return [parseInt(c)];
+            if (c === '-') return [11];
+            if (c === '&') return [12];
+            if (c >= 'A' && c <= 'I') return [12, c.charCodeAt(0) - 64];
+            if (c >= 'J' && c <= 'R') return [11, c.charCodeAt(0) - 73];
+            if (c >= 'S' && c <= 'Z') return [0, c.charCodeAt(0) - 81];
+            return [];
+        }
+
+        encodeBtn.addEventListener('click', () => {
+            const text = encodeInput.value.toUpperCase();
+
+            // Clear existing punches
+            cardState = Array.from({ length: NUM_COLS }, () => new Set());
+            const holes = document.getElementsByClassName('hole');
+            for (let i = 0; i < holes.length; i++) {
+                holes[i].classList.remove('punched');
+            }
+
+            // Apply new punches based on text
+            const chars = text.substring(0, 80).split('');
+            for (let col = 0; col < chars.length; col++) {
+                const punches = charToPunches(chars[col]);
+                punches.forEach(r => {
+                    cardState[col].add(r);
+                    const hole = domCache.cols[col].find(el => el.dataset && parseInt(el.dataset.row) === r);
+                    if (hole) hole.classList.add('punched');
+                });
+            }
+            decodeCard();
+        });
+        /* --- ENCODER LOGIC END --- */
 
         exportImgBtn.addEventListener('click', () => {
             const cardElement = document.getElementById('capture-target');
@@ -562,10 +666,7 @@
                 resultString += '?';
             }
 
-            // Trim the trailing spaces off the right side of the message
             currentRawText = resultString.trimEnd();
-
-            // Safely output the text (and fixes the wrapping bug!)
             messageEl.textContent = currentRawText;
         }
 
